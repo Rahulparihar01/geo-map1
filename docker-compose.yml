@@ -1,0 +1,130 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: geo_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: geomap_db_updated
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - geo_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d geomap_db_updated"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: geo_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 512mb --maxmemory-policy volatile-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - geo_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: geo_redis_insight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis_insight_data:/data
+    networks:
+      - geo_network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis-insight-init:
+    image: curlimages/curl:latest
+    container_name: geo_redis_insight_init
+    restart: "no"
+    networks:
+      - geo_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      redis-insight:
+        condition: service_started
+    command:
+      - sh
+      - -c
+      - |
+        echo 'Waiting for RedisInsight to be ready...'
+        sleep 15
+        echo 'Registering Redis connection in RedisInsight...'
+        curl -sf -X POST http://redis-insight:5540/api/databases \
+          -H 'Content-Type: application/json' \
+          -d '{"host":"redis","port":6379,"name":"geo-map-redis"}' \
+          && echo 'Redis connection registered successfully!' \
+          || echo 'Registration failed - add manually at http://localhost:5540'
+
+  # ── Mailpit — local email catcher ──────────────────────────────────────────
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: geo_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_UI_AUTH: "admin:admin123"          # Web UI login: admin / admin123
+      MP_SMTP_AUTH_ACCEPT_ANY: 1           
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    networks:
+      - geo_network
+
+  alembic:
+    build: .
+    container_name: geo_alembic
+    env_file:
+      - .env.docker
+    networks:
+      - geo_network
+    depends_on:
+      db:
+        condition: service_healthy
+    command: alembic upgrade head
+
+  api:
+    build: .
+    container_name: geo_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.docker
+    networks:
+      - geo_network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  redis_insight_data:
+
+networks:
+  geo_network:
+    driver: bridge

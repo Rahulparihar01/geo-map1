@@ -1,0 +1,46 @@
+# B13 FIX: Prevent secrets and development artifacts from being
+# baked into the Docker image via COPY . .
+# Without this file, .env (containing DB passwords, API keys, JWT secret)
+# would be included in the image layer and visible via docker history.
+
+# Environment files — secrets must NEVER enter the image
+.env
+.env.docker
+.env.*
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE and OS artifacts
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Alembic — migrations run at deploy time, not baked into image
+# (keep included so alembic upgrade head works inside the container)

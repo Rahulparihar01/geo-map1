@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Vendored Python environment (site-packages) — never commit
+Lib/
+Scripts/
+Include/
+
+# Logs
+logs/
+*.log
+
+# Env files
+.env
+.env.*
+!.env.example
+.env.docker
+
+# Node
+node_modules/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tooling
+.pytest_cache/
+payment_test.html
+
+# Windows reserved device name artifact
+nul
