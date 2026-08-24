@@ -5,6 +5,18 @@ from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
+import builtins
+
+if not hasattr(builtins, "ExceptionGroup"):
+    try:
+        from exceptiongroup import ExceptionGroup
+        builtins.ExceptionGroup = ExceptionGroup
+    except ImportError:
+        class ExceptionGroup(Exception):
+            def __init__(self, message, exceptions):
+                super().__init__(message)
+                self.exceptions = exceptions
+        builtins.ExceptionGroup = ExceptionGroup
 
 crash_logger = logging.getLogger("crash_detector")
 
